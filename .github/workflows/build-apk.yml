@@ -5,10 +5,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write   # needed to create releases and upload assets
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,203 +24,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept licenses & install components
+      - name: Accept licenses & install SDK
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Create TWA Android project from scratch
-        run: |
-          mkdir -p twa-project/app/src/main/java/com/bharatnewsai/app
-          mkdir -p twa-project/app/src/main/res/values
-          mkdir -p twa-project/app/src/main/res/mipmap-hdpi
-          mkdir -p twa-project/app/src/main/res/mipmap-mdpi
-          mkdir -p twa-project/app/src/main/res/mipmap-xhdpi
-          mkdir -p twa-project/app/src/main/res/mipmap-xxhdpi
-          mkdir -p twa-project/app/src/main/res/mipmap-xxxhdpi
-
-      - name: Download logo for app icon
-        run: |
-          curl -L "https://raw.githubusercontent.com/kushagra486/bharat-news-ai/main/logo.png" \
-            -o /tmp/logo.png
-          # Copy to all mipmap densities
-          for dir in twa-project/app/src/main/res/mipmap-*; do
-            cp /tmp/logo.png "$dir/ic_launcher.png"
-            cp /tmp/logo.png "$dir/ic_launcher_round.png"
-          done
-
-      - name: Write root build.gradle
-        run: |
-          cat > twa-project/build.gradle << 'GRADLE'
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.2.2'
-              }
-          }
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          GRADLE
-
-      - name: Write settings.gradle
-        run: |
-          cat > twa-project/settings.gradle << 'GRADLE'
-          include ':app'
-          GRADLE
-
-      - name: Write gradle.properties
-        run: |
-          cat > twa-project/gradle.properties << 'PROPS'
-          android.useAndroidX=true
-          android.enableJetifier=true
-          PROPS
-
-      - name: Write app/build.gradle
-        run: |
-          cat > twa-project/app/build.gradle << 'GRADLE'
-          apply plugin: 'com.android.application'
-          android {
-              compileSdk 34
-              namespace 'com.bharatnewsai.app'
-              defaultConfig {
-                  applicationId 'com.bharatnewsai.app'
-                  minSdk 21
-                  targetSdk 34
-                  versionCode 1
-                  versionName '1.0.0'
-              }
-              signingConfigs {
-                  release {
-                      storeFile file('../../bharatnews.keystore')
-                      storePassword 'bharatnews123'
-                      keyAlias 'bharatnews'
-                      keyPassword 'bharatnews123'
-                  }
-              }
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                      signingConfig signingConfigs.release
-                  }
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
-              }
-          }
-          dependencies {
-              implementation 'androidx.browser:browser:1.8.0'
-              implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
-          }
-          GRADLE
-
-      - name: Write AndroidManifest.xml
-        run: |
-          cat > twa-project/app/src/main/AndroidManifest.xml << 'XML'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <application
-                  android:label="BharatNews.ai"
-                  android:icon="@mipmap/ic_launcher"
-                  android:roundIcon="@mipmap/ic_launcher_round"
-                  android:supportsRtl="true"
-                  android:theme="@android:style/Theme.Black.NoTitleBar">
-                  <activity
-                      android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-                      android:exported="true">
-                      <meta-data
-                          android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                          android:value="https://kushagra486.github.io/news-demo-ai/" />
-                      <meta-data
-                          android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                          android:resource="@color/colorPrimary" />
-                      <meta-data
-                          android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
-                          android:resource="@color/colorPrimary" />
-                      <meta-data
-                          android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
-                          android:resource="@mipmap/ic_launcher"/>
-                      <meta-data
-                          android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
-                          android:resource="@color/colorPrimary"/>
-                      <meta-data
-                          android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
-                          android:value="300"/>
-                      <meta-data
-                          android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY"
-                          android:value="com.bharatnewsai.app.fileprovider"/>
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                      <intent-filter android:autoVerify="true">
-                          <action android:name="android.intent.action.VIEW"/>
-                          <category android:name="android.intent.category.DEFAULT"/>
-                          <category android:name="android.intent.category.BROWSABLE"/>
-                          <data android:scheme="https"
-                              android:host="kushagra486.github.io"
-                              android:pathPrefix="/news-demo-ai"/>
-                      </intent-filter>
-                  </activity>
-                  <provider
-                      android:name="androidx.core.content.FileProvider"
-                      android:authorities="com.bharatnewsai.app.fileprovider"
-                      android:exported="false"
-                      android:grantUriPermissions="true">
-                      <meta-data
-                          android:name="android.support.FILE_PROVIDER_PATHS"
-                          android:resource="@xml/filepaths"/>
-                  </provider>
-              </application>
-          </manifest>
-          XML
-
-      - name: Write colors.xml
-        run: |
-          mkdir -p twa-project/app/src/main/res/values
-          cat > twa-project/app/src/main/res/values/colors.xml << 'XML'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="colorPrimary">#0a0a0a</color>
-              <color name="colorPrimaryDark">#0a0a0a</color>
-              <color name="colorAccent">#e91e8c</color>
-          </resources>
-          XML
-
-      - name: Write filepaths.xml
-        run: |
-          mkdir -p twa-project/app/src/main/res/xml
-          cat > twa-project/app/src/main/res/xml/filepaths.xml << 'XML'
-          <?xml version="1.0" encoding="utf-8"?>
-          <paths>
-              <external-path name="external_files" path="."/>
-          </paths>
-          XML
-
-      - name: Write strings.xml
-        run: |
-          cat > twa-project/app/src/main/res/values/strings.xml << 'XML'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="app_name">BharatNews.ai</string>
-          </resources>
-          XML
-
-      - name: Setup Gradle wrapper
-        working-directory: twa-project
-        run: |
-          gradle wrapper --gradle-version 8.4 \
-            --distribution-type bin
-
-      - name: Generate keystore
+      - name: Generate signing keystore
         run: |
           keytool -genkeypair -v \
             -keystore bharatnews.keystore \
@@ -227,32 +39,178 @@ jobs:
             -dname "CN=BharatNewsAI,O=BharatNews,C=IN" \
             -noprompt
 
-      - name: Build Release APK
-        working-directory: twa-project
+      - name: Create Android TWA project
+        run: |
+          mkdir -p twa/app/src/main/java/com/bharatnewsai/app
+          mkdir -p twa/app/src/main/res/{values,xml}
+          for d in hdpi mdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p twa/app/src/main/res/mipmap-$d
+          done
+
+      - name: Download app icon
+        run: |
+          curl -sL "https://raw.githubusercontent.com/kushagra486/bharat-news-ai/main/logo.png" -o /tmp/logo.png
+          for d in twa/app/src/main/res/mipmap-*; do
+            cp /tmp/logo.png "$d/ic_launcher.png"
+            cp /tmp/logo.png "$d/ic_launcher_round.png"
+          done
+
+      - name: Write build files
+        run: |
+          # settings.gradle
+          echo "include ':app'" > twa/settings.gradle
+
+          # gradle.properties
+          cat > twa/gradle.properties << 'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+          # root build.gradle
+          cat > twa/build.gradle << 'EOF'
+          buildscript {
+            repositories { google(); mavenCentral() }
+            dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          # app/build.gradle
+          cat > twa/app/build.gradle << 'EOF'
+          apply plugin: 'com.android.application'
+          android {
+            compileSdk 34
+            namespace 'com.bharatnewsai.app'
+            defaultConfig {
+              applicationId 'com.bharatnewsai.app'
+              minSdk 21
+              targetSdk 34
+              versionCode 1
+              versionName '1.0.0'
+            }
+            signingConfigs {
+              release {
+                storeFile file('../../bharatnews.keystore')
+                storePassword 'bharatnews123'
+                keyAlias 'bharatnews'
+                keyPassword 'bharatnews123'
+              }
+            }
+            buildTypes {
+              release {
+                minifyEnabled false
+                signingConfig signingConfigs.release
+              }
+            }
+            compileOptions {
+              sourceCompatibility JavaVersion.VERSION_1_8
+              targetCompatibility JavaVersion.VERSION_1_8
+            }
+          }
+          dependencies {
+            implementation 'androidx.browser:browser:1.8.0'
+            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+          }
+          EOF
+
+          # AndroidManifest.xml
+          cat > twa/app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <application
+              android:label="BharatNews.ai"
+              android:icon="@mipmap/ic_launcher"
+              android:roundIcon="@mipmap/ic_launcher_round"
+              android:theme="@android:style/Theme.Black.NoTitleBar">
+              <activity
+                android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+                android:exported="true">
+                <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                  android:value="https://kushagra486.github.io/news-demo-ai/"/>
+                <meta-data android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                  android:resource="@color/colorPrimary"/>
+                <meta-data android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
+                  android:resource="@color/colorPrimary"/>
+                <meta-data android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
+                  android:resource="@mipmap/ic_launcher"/>
+                <meta-data android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
+                  android:resource="@color/colorPrimary"/>
+                <meta-data android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
+                  android:value="300"/>
+                <meta-data android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY"
+                  android:value="com.bharatnewsai.app.fileprovider"/>
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN"/>
+                  <category android:name="android.intent.category.LAUNCHER"/>
+                </intent-filter>
+                <intent-filter android:autoVerify="true">
+                  <action android:name="android.intent.action.VIEW"/>
+                  <category android:name="android.intent.category.DEFAULT"/>
+                  <category android:name="android.intent.category.BROWSABLE"/>
+                  <data android:scheme="https"
+                    android:host="kushagra486.github.io"
+                    android:pathPrefix="/news-demo-ai"/>
+                </intent-filter>
+              </activity>
+              <provider
+                android:name="androidx.core.content.FileProvider"
+                android:authorities="com.bharatnewsai.app.fileprovider"
+                android:exported="false"
+                android:grantUriPermissions="true">
+                <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                  android:resource="@xml/filepaths"/>
+              </provider>
+            </application>
+          </manifest>
+          EOF
+
+          # res/values/colors.xml
+          cat > twa/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <color name="colorPrimary">#0a0a0a</color>
+          </resources>
+          EOF
+
+          # res/values/strings.xml
+          cat > twa/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <string name="app_name">BharatNews.ai</string>
+          </resources>
+          EOF
+
+          # res/xml/filepaths.xml
+          cat > twa/app/src/main/res/xml/filepaths.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths><external-path name="external_files" path="."/></paths>
+          EOF
+
+      - name: Setup Gradle wrapper
+        working-directory: twa
+        run: gradle wrapper --gradle-version 8.4
+
+      - name: Build APK
+        working-directory: twa
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Find APK
-        run: find . -name "*.apk" | head -5
-
-      - name: Rename APK
+      - name: Copy & name APK
         run: |
-          APK=$(find twa-project -name "*.apk" | head -1)
-          if [ -n "$APK" ]; then
-            cp "$APK" BharatNewsAI-v1.0.${{ github.run_number }}.apk
-            echo "APK_PATH=BharatNewsAI-v1.0.${{ github.run_number }}.apk" >> $GITHUB_ENV
-          fi
+          APK=$(find twa -name "*.apk" | grep release | head -1)
+          echo "Found: $APK"
+          cp "$APK" "BharatNewsAI-v1.0.${{ github.run_number }}.apk"
 
-      - name: Upload APK artifact
+      - name: Upload as artifact (90-day download link)
         uses: actions/upload-artifact@v4
         with:
-          name: BharatNewsAI-APK
-          path: "*.apk"
-          if-no-files-found: error
+          name: BharatNewsAI-APK-v1.0.${{ github.run_number }}
+          path: "BharatNewsAI-*.apk"
           retention-days: 90
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-v1.0.${{ github.run_number }}
@@ -260,18 +218,14 @@ jobs:
           body: |
             ## 📱 BharatNews.ai — Android App
 
-            **Download the APK below and install on any Android phone.**
+            **Tap the APK below to download and install on Android.**
 
-            ### How to install:
-            1. Download `BharatNewsAI-*.apk`
-            2. On Android: **Settings → Security → Install unknown apps → Allow**
-            3. Open the downloaded file → **Install**
-            4. Open **BharatNews.ai** from your home screen ✅
+            ### Install steps:
+            1. Download `BharatNewsAI-v1.0.${{ github.run_number }}.apk`
+            2. On your phone: **Settings → Security → Install unknown apps → Allow**
+            3. Open the APK file → tap **Install**
+            4. Launch **BharatNews.ai** from your home screen ✅
 
-            ---
-            Built from: https://kushagra486.github.io/news-demo-ai/
-            Commit: ${{ github.sha }}
-          files: "*.apk"
+            > App loads: https://kushagra486.github.io/news-demo-ai/
+          files: "BharatNewsAI-*.apk"
           draft: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
