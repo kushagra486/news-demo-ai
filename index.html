@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a0a0a">
 <meta name="description" content="Bharat News AI — Live AI-powered daily news intelligence">
-<link rel="manifest" href="#" id="manifestLink">
+<link rel="manifest" href="manifest.json" id="manifestLink">
 <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/kushagra486/bharat-news-ai/main/logo.png">
 <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/kushagra486/bharat-news-ai/main/logo.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2320,7 +2320,7 @@ function installPWA() {
   };
   const blob = new Blob([JSON.stringify(manifest)],{type:'application/json'});
   const url = URL.createObjectURL(blob);
-  document.getElementById('manifestLink').href=url;
+  // manifest.json is served as a static file
 }
 
 // Service Worker registration
