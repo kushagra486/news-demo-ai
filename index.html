@@ -1525,7 +1525,7 @@ async async function searchNewsAPI(q) {
     return (d.results||[]).map(function(a,i){ return newsdataToCard(a,'All',i); });
   } catch(e) { return []; }
 }
-async // searchGNews (sync version removed — use async version below)
+// searchGNews (sync version removed — new async version defined below)
 
 // ══════════════════════════════════════════════════
 // MERGE & DEDUPE
