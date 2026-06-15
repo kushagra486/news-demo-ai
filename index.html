@@ -1514,18 +1514,43 @@ async function fetchFromGuardian(sector, page=1) {
 }
 async function fetchFromNewsAPI(sector){try{var cat=SECTOR_TO_NEWSDATA[sector]||'top';var ac=new AbortController();setTimeout(function(){ac.abort();},8000);var r=await fetch(NEWSDATA_BASE+'/latest?apikey='+NEWSDATA_KEY+'&language=en&category='+cat+'&size=8',{signal:ac.signal});if(!r.ok)return[];var d=await r.json();return(d.results||[]).map(function(a,i){return newsdataToCard(a,sector,i+100);});}catch(e){return[];}}
 
-async function searchNewsAPI(q) {
-  const r = await fetch(`${NEWSAPI_BASE}/everything?apiKey=${NEWSAPI_KEY}&q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=20`);
-  if(!r.ok) throw new Error(`NewsAPI search ${r.status}`);
-  const d = await r.json();
-  if(d.status!=='ok') throw new Error('NewsAPI search: empty');
-  return d.articles.map((a,i)=>newsapiToCard(a,'All',i)).filter(Boolean);
+async async function searchNewsAPI(q) {
+  try {
+    var ac=new AbortController(); setTimeout(function(){ac.abort();},8000);
+    var r=await fetch(NEWSDATA_BASE+'/latest?apikey='+NEWSDATA_KEY+'&q='+encodeURIComponent(q)+'&language=en&size=10',{signal:ac.signal});
+    if(!r.ok) return [];
+    var d=await r.json();
+    return (d.results||[]).map(function(a,i){return newsdataToCard(a,'All',i);});
+  } catch(e){return [];}
 }
-async function searchGNews(q) {
-  const r = await fetch(`${GNEWS_BASE}/search?q=${encodeURIComponent(q)}&lang=en&max=10&apikey=${GNEWS_KEY}`);
-  if(!r.ok) throw new Error(`GNews search ${r.status}`);
-  const d = await r.json();
-  return (d.articles||[]).map((a,i)=>gnewsToCard(a,'All',i));
+async async function searchGNews(q) {
+  try {
+    var ac=new AbortController(); setTimeout(function(){ac.abort();},8000);
+    var r=await fetch(GNEWS_BASE+'/search?q='+encodeURIComponent(q)+'&lang=en&country=in&max=10&apikey='+GNEWS_KEY,{signal:ac.signal});
+    if(!r.ok) return [];
+    var d=await r.json();
+    return (d.articles||[]).map(function(a,i){return gnewsToCard(a,'All',i+20);});
+  } catch(e){return [];}
+}
+
+async function searchGuardian(q) {
+  try {
+    var ac=new AbortController(); setTimeout(function(){ac.abort();},8000);
+    var r=await fetch(GUARDIAN_BASE+'/search?api-key='+GUARDIAN_KEY+'&q='+encodeURIComponent(q)+'&show-fields=thumbnail,trailText&page-size=5&order-by=newest',{signal:ac.signal});
+    if(!r.ok) return [];
+    var d=await r.json();
+    return (d.response.results||[]).map(function(a,i){
+      return {
+        id:'grd-s'+i, title:a.webTitle||'',
+        summary:(a.fields&&a.fields.trailText)||'',
+        source:'The Guardian', sourceIcon:'📰',
+        image:(a.fields&&a.fields.thumbnail)||'',
+        sector:'All', time:timeAgo(new Date(a.webPublicationDate)),
+        articleUrl:a.webUrl||'#', apiSource:'Guardian',
+        tags:[], breaking:false
+      };
+    });
+  } catch(e){return [];}
 }
 
 // ══════════════════════════════════════════════════
@@ -1657,33 +1682,42 @@ async function loadMore() {
 // ══════════════════════════════════════════════════
 let searchTimer = null;
 async function handleSearch(val) {
-  const clear = document.getElementById('searchClear');
-  clear.style.display = val ? 'block' : 'none';
-
+  var clear=document.getElementById('searchClear');
+  if(clear) clear.style.display=val?'block':'none';
   clearTimeout(searchTimer);
-  if (!val.trim()) { renderFeed(); return; }
+  removeAISearchBanner();
+  if(!val||!val.trim()){renderFeed();return;}
 
-  searchTimer = setTimeout(async () => {
-    try {
-      const [r1,r2] = await Promise.allSettled([
-        searchNewsAPI(val),
-        searchGNews(val),
-      ]);
-      const results = mergeSources(
-        r1.status==='fulfilled'?r1.value:[],
-        r2.status==='fulfilled'?r2.value:[],
-      );
-      renderFeed(results);
-      showToast(`🔍 ${results.length} results for "${val}"`);
-    } catch(e) {
-      const filtered = (newsData||[]).filter(c=>c.title.toLowerCase().includes(val.toLowerCase())||c.summary.toLowerCase().includes(val.toLowerCase()));
-      renderFeed(filtered);
-    }
-    showFeedLoader(false);
-  }, 600);
+  // Instant local filter while APIs load
+  var local=(newsData||[]).filter(function(c){
+    var t=val.toLowerCase();
+    return (c.title||'').toLowerCase().includes(t)||(c.summary||'').toLowerCase().includes(t);
+  });
+  if(local.length) renderFeed(local);
+
+  searchTimer=setTimeout(async function(){
+    // Show AI banner loading state
+    showAISearchBanner(val,null);
+
+    // Fetch from 3 real CORS-open APIs in parallel
+    var results=await Promise.allSettled([searchNewsAPI(val),searchGNews(val),searchGuardian(val)]);
+    var all=[];
+    results.forEach(function(r){if(r.status==='fulfilled'&&r.value&&r.value.length)all=all.concat(r.value);});
+
+    // Deduplicate
+    var seen={};
+    all=all.filter(function(c){var k=(c.title||'').slice(0,40).toLowerCase();if(seen[k])return false;seen[k]=1;return true;});
+
+    if(all.length){renderFeed(all);showToast('🔍 '+all.length+' live results for "'+val+'"');}
+    else{showToast('🔍 No live results — try different keywords');}
+
+    // Groq compound-beta web search answer
+    runAISearch(val,all.slice(0,3));
+  },500);
 }
 
 function clearSearch() {
+  removeAISearchBanner();
   document.getElementById('searchInput').value='';
   document.getElementById('searchClear').style.display='none';
   renderFeed();
@@ -4229,19 +4263,18 @@ handleSearch = function(val) {
   }, 900);
 };
 
-async function runAISearch(q) {
-  showAISearchBanner(q, null); // show loading state
-  try {
-    var prompt = 'Give a brief, factual answer to: "' + q + '"\n'
-      + 'This is a news app search. Keep it to 2-3 sentences max.\n'
-      + 'If it is a news topic, summarize the latest situation.\n'
-      + 'If it is a GK query, answer directly with the fact.\n'
-      + 'No preamble, no "Based on..." — just the answer directly.';
-    var answer = await callAIWithWebSearch(prompt, 'You are a concise news search assistant. Answer in 2-3 sentences max. Be direct and factual.');
-    showAISearchBanner(q, answer);
-  } catch(e) {
-    removeAISearchBanner();
-  }
+async function runAISearch(q,cards){
+  try{
+    var ctx='';
+    if(cards&&cards.length){
+      ctx='\n\nFresh articles:\n'+cards.map(function(c,i){
+        return (i+1)+'. '+c.title+' ('+c.source+'): '+(c.summary||'').slice(0,120);
+      }).join('\n');
+    }
+    var prompt='Search: "'+q+'"'+ctx+'\n\nAnswer in 2-3 sentences using your web knowledge. Bold key terms with **. Be direct — no preamble.';
+    var answer=await callAIWithWebSearch(prompt,'You are a real-time news search assistant for India. Give a direct 2-3 sentence answer.');
+    showAISearchBanner(q,answer);
+  }catch(e){removeAISearchBanner();}
 }
 
 function showAISearchBanner(q, answer) {
