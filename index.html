@@ -16,7 +16,7 @@
 <meta name="theme-color" content="#0a0a0a">
 <title>Bharat News AI — Daily Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <style>
 :root {
@@ -968,6 +968,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
    <button onclick="supaForgot()" style="display:block;width:100%;border:none;background:transparent;color:var(--text3);font-size:12px;cursor:pointer;margin-bottom:10px;font-family:inherit;text-align:center">Forgot password?</button>
    <div class="lp-or">or</div>
    <button class="lp-ghost" onclick="lpGuest()">👤 Continue as Guest</button>
+   <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--text3)">New here? <button onclick="lpTab('up')" style="border:none;background:transparent;color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">Create an account →</button></div>
   </div>
 
   <!-- SIGN UP -->
@@ -2693,12 +2694,21 @@ async function init() {
 
 // ══ LOGIN ══════════════════════════════════════════
 var currentUser = null;
+// Auto-restore session for returning users
 (function(){
   var u = JSON.parse(localStorage.getItem('bna_user') || 'null');
-  if (u) {
+  if (u && u.name && !u.isGuest || u && u.isGuest) {
     currentUser = u;
-    var pg = document.getElementById('loginPage');
-    if (pg) pg.classList.add('lp-hidden');
+    // Hide login page immediately — no flash
+    var style = document.createElement('style');
+    style.textContent = '#loginPage{display:none!important}';
+    document.head.appendChild(style);
+    // Then properly hide after DOM ready
+    document.addEventListener('DOMContentLoaded', function(){
+      var pg = document.getElementById('loginPage');
+      if (pg) pg.classList.add('lp-hidden');
+      style.remove();
+    });
   }
 })();
 
@@ -3861,15 +3871,9 @@ function closeMobInfo() {
   if (el) el.style.display = 'none';
 }
 
-function openQuiz() {
-  var ov = document.getElementById('quizOverlay');
-  if (ov) ov.classList.add('open');
-}
+function openQuiz() { openChat(); if(typeof setChatMode!=='undefined') setChatMode('quiz', document.getElementById('cmode-quiz')); }
 
-function openAskNews() {
-  var ov = document.getElementById('askOverlay');
-  if (ov) ov.classList.add('open');
-}
+function openAskNews() { openChat(); if(typeof setChatMode!=='undefined') setChatMode('news', document.getElementById('cmode-news')); }
 
 function closeAskNews() {
   var ov = document.getElementById('askOverlay');
@@ -3938,12 +3942,26 @@ function updateFABVisibility() {
 
 
 
-function getSupabase(){if(!_supaClient){if(typeof supabase==='undefined'){console.warn('Supabase SDK not loaded');return null;}_supaClient=supabase.createClient(SUPA_URL,SUPA_ANON);}return _supaClient;}
+function getSupabase(){if(!_supaClient){if(typeof supabase==='undefined'){console.warn('Supabase SDK not loaded yet');return null;}try{_supaClient=supabase.createClient(SUPA_URL,SUPA_ANON,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});}catch(e){console.error('Supabase init failed:',e);return null;}}return _supaClient;}
 function lpMode(m){}
 function lpShowPanel(id){['lp-in','lp-up','lp-otp'].forEach(function(p){var e=document.getElementById(p);if(e)e.style.display='none';});var el=document.getElementById(id);if(el)el.style.display='block';}
 function togglePassVis(inputId,btn){var inp=document.getElementById(inputId);if(!inp)return;inp.type=inp.type==='password'?'text':'password';btn.textContent=inp.type==='password'?'👁':'🙈';}
-async function supaLogin(){var email=(document.getElementById('lp-in-email').value||'').trim();var pass=(document.getElementById('lp-in-pass').value||'');var err=document.getElementById('lp-in-err');var btn=document.getElementById('lp-in-btn');if(!email){err.textContent='Please enter your email.';return;}if(!pass){err.textContent='Please enter your password.';return;}err.textContent='';btn.disabled=true;btn.textContent='⏳ Signing in...';try{var sb=getSupabase();if(!sb)throw new Error('Auth unavailable');var r=await sb.auth.signInWithPassword({email:email,password:pass});if(r.error)throw r.error;await onSupaAuthSuccess(r.data.user,r.data.session);}catch(e){err.textContent=e.message||'Sign in failed.';btn.disabled=false;btn.textContent='🚀 Sign In';}}
-async function supaSignup(){var name=(document.getElementById('lp-up-name').value||'').trim();var prof=(document.getElementById('lp-up-prof').value||'').trim();var email=(document.getElementById('lp-up-email').value||'').trim();var pass=(document.getElementById('lp-up-pass').value||'');var err=document.getElementById('lp-up-err');var btn=document.getElementById('lp-up-btn');if(!name){err.textContent='Please enter your name.';return;}if(!email){err.textContent='Please enter your email.';return;}if(pass.length<6){err.textContent='Password must be at least 6 characters.';return;}err.textContent='';btn.disabled=true;btn.textContent='⏳ Creating account...';try{var sb=getSupabase();if(!sb)throw new Error('Auth unavailable');var r=await sb.auth.signUp({email:email,password:pass,options:{data:{name:name,profession:prof},emailRedirectTo:window.location.origin+window.location.pathname}});if(r.error)throw r.error;window._pendingEmail=email;window._pendingName=name;window._pendingProf=prof;document.getElementById('lp-otp-msg').textContent='Confirmation sent to '+email+'. Click the link in your inbox to activate your account.';lpShowPanel('lp-otp');showToast('📧 Check your email for confirmation!');}catch(e){err.textContent=e.message||'Sign up failed. Please try again.';btn.disabled=false;btn.textContent='✨ Create Account';}}
+async function supaLogin(){
+  var err=document.getElementById('lp-in-err');
+  var btn=document.getElementById('lp-in-btn');
+  if(typeof supabase==='undefined'){
+    if(btn){btn.disabled=true;btn.textContent='⏳ Loading auth...';}
+    var _w=0;
+    while(typeof supabase==='undefined'&&_w<4000){await new Promise(function(r){setTimeout(r,200);});_w+=200;}
+    if(typeof supabase==='undefined'){
+      if(err)err.textContent='Auth service unavailable. Check your connection and refresh.';
+      if(btn){btn.disabled=false;btn.textContent='🚀 Sign In';}
+      return;
+    }
+    if(btn){btn.disabled=false;btn.textContent='🚀 Sign In';}
+  }
+  var email=(document.getElementById('lp-in-email').value||'').trim();var pass=(document.getElementById('lp-in-pass').value||'');if(!email){err.textContent='Please enter your email.';return;}if(!pass){err.textContent='Please enter your password.';return;}err.textContent='';btn.disabled=true;btn.textContent='⏳ Signing in...';try{var sb=getSupabase();if(!sb)throw new Error('Auth unavailable');var r=await sb.auth.signInWithPassword({email:email,password:pass});if(r.error)throw r.error;await onSupaAuthSuccess(r.data.user,r.data.session);}catch(e){err.textContent=e.message||'Sign in failed.';btn.disabled=false;btn.textContent='🚀 Sign In';}}
+async function supaSignup(){if(typeof supabase==='undefined'){var waited2=0;while(typeof supabase==='undefined'&&waited2<3000){await new Promise(function(r){setTimeout(r,200);});waited2+=200;}if(typeof supabase==='undefined'){var e2=document.getElementById('lp-up-err');if(e2)e2.textContent='Auth service not loaded. Please refresh and try again.';return;}}var name=(document.getElementById('lp-up-name').value||'').trim();var prof=(document.getElementById('lp-up-prof').value||'').trim();var email=(document.getElementById('lp-up-email').value||'').trim();var pass=(document.getElementById('lp-up-pass').value||'');var err=document.getElementById('lp-up-err');var btn=document.getElementById('lp-up-btn');if(!name){err.textContent='Please enter your name.';return;}if(!email){err.textContent='Please enter your email.';return;}if(pass.length<6){err.textContent='Password must be at least 6 characters.';return;}err.textContent='';btn.disabled=true;btn.textContent='⏳ Creating account...';try{var sb=getSupabase();if(!sb)throw new Error('Auth unavailable');var r=await sb.auth.signUp({email:email,password:pass,options:{data:{name:name,profession:prof},emailRedirectTo:window.location.origin+window.location.pathname}});if(r.error)throw r.error;window._pendingEmail=email;window._pendingName=name;window._pendingProf=prof;document.getElementById('lp-otp-msg').textContent='Confirmation sent to '+email+'. Click the link in your inbox to activate your account.';lpShowPanel('lp-otp');showToast('📧 Check your email for confirmation!');}catch(e){err.textContent=e.message||'Sign up failed. Please try again.';btn.disabled=false;btn.textContent='✨ Create Account';}}
 async function supaVerifyOTP(){var code=(document.getElementById('lp-otp-code').value||'').trim();var err=document.getElementById('lp-otp-err');if(code.length<6){err.textContent='Enter 6-digit code.';return;}err.textContent='⏳ Verifying...';try{var sb=getSupabase();var r=await sb.auth.verifyOtp({email:window._pendingEmail||'',token:code,type:'signup'});if(r.error)throw r.error;await onSupaAuthSuccess(r.data.user,r.data.session);}catch(e){err.textContent=e.message||'Verification failed.';}}
 async function supaForgot(){var email=(document.getElementById('lp-in-email').value||'').trim();if(!email){document.getElementById('lp-in-err').textContent='Enter your email first.';return;}try{var sb=getSupabase();await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});showToast('📧 Password reset sent to '+email);}catch(e){showToast('⚠️ '+(e.message||'Could not send reset email'));}}
 async function onSupaAuthSuccess(user,session){if(!user)return;localStorage.setItem('bna_supa_session',JSON.stringify({access_token:session.access_token,refresh_token:session.refresh_token,expires_at:session.expires_at,user_id:user.id}));var sb=getSupabase();var prof=await sb.from('profiles').select('*').eq('id',user.id).single();var pd=prof.data||{};currentUser={id:user.id,email:user.email,name:pd.name||(user.user_metadata&&user.user_metadata.name)||user.email.split('@')[0],handle:pd.handle||user.email.split('@')[0],profession:pd.profession||(user.user_metadata&&user.user_metadata.profession)||'',avatar_url:pd.avatar_url||(user.user_metadata&&user.user_metadata.avatar_url)||'',avatar_initials:pd.avatar_initials||((pd.name||user.email)[0].toUpperCase()),preferred_language:pd.preferred_language||'en',joined:pd.joined_at||user.created_at,isGuest:false,isCloud:true};localStorage.setItem('bna_user',JSON.stringify(currentUser));syncFromCloud();lpHide();showToast('👋 Welcome, '+currentUser.name.split(' ')[0]+'!');}
@@ -4323,11 +4341,6 @@ clearSearch = function() {
 };
 
 // ── Add chat button to mobile feature bar ─────────
-document.addEventListener('DOMContentLoaded', function() {
-  // Wire up openChat to the Ask button in feature bar
-  var askBtn = document.querySelector('.mob-feat-btn[onclick="openAskNews()"]');
-  if (askBtn) askBtn.onclick = openChat;
-});
 
 init();
 </script>
