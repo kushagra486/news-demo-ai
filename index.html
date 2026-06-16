@@ -302,6 +302,91 @@ a{color:inherit;text-decoration:none;}
   .story-item{width:58px;}
   .story-ring{width:54px;height:54px;}
 }
+
+/* ── CLOCK + WEATHER PILL (topbar) ── */
+.info-pill-row{display:flex;gap:8px;padding:8px 16px 0;background:var(--surface);overflow-x:auto;scrollbar-width:none}
+.info-pill-row::-webkit-scrollbar{display:none}
+.info-pill{
+  display:flex;align-items:center;gap:5px;flex-shrink:0;
+  padding:5px 11px;border-radius:20px;background:var(--surface2);
+  font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer;
+  transition:background .15s;
+}
+.info-pill:active{background:var(--surface3)}
+.info-pill .ip-val{color:var(--text);font-weight:700}
+
+/* ── LIVE SCORE CARDS (real match data) ── */
+.live-score-card{
+  background:var(--surface2);border-radius:var(--radius);
+  padding:14px;margin-bottom:10px;border:1px solid var(--border);
+}
+.live-score-head{
+  display:flex;align-items:center;justify-content:between;gap:8px;
+  margin-bottom:10px;font-size:11px;color:var(--text3);font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px;
+}
+.live-score-head .live-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--danger);
+  animation:pulse-dot 1.5s infinite;margin-right:4px;
+}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.live-score-teams{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.live-score-team{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.live-score-team-name{font-size:13px;font-weight:700;color:var(--text);text-align:center}
+.live-score-team-score{font-size:18px;font-weight:800;color:var(--accent2)}
+.live-score-vs{font-size:11px;color:var(--text3);font-weight:700;padding:0 6px}
+.live-score-status{
+  text-align:center;font-size:11.5px;color:var(--text2);
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
+}
+.score-sport-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
+.score-sport-tabs::-webkit-scrollbar{display:none}
+
+/* ── DAILY BRIEFING CARD ── */
+.briefing-card{
+  background:var(--grad-soft);border:1px solid rgba(147,51,234,.18);
+  border-radius:var(--radius-lg);padding:16px;margin:12px 16px;
+  cursor:pointer;
+}
+.briefing-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.briefing-badge{
+  font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  background:var(--grad);color:#fff;padding:3px 9px;border-radius:20px;
+}
+.briefing-title{font-size:13px;font-weight:700;color:var(--text)}
+.briefing-text{font-size:13px;color:var(--text2);line-height:1.6}
+.briefing-text strong{color:var(--accent2)}
+
+/* ── QUIZ CARD ── */
+.quiz-card{
+  background:var(--surface2);border-radius:var(--radius);
+  padding:18px;margin-bottom:12px;
+}
+.quiz-q{font-size:15px;font-weight:700;color:var(--text);margin-bottom:14px;line-height:1.4}
+.quiz-opt{
+  display:block;width:100%;text-align:left;padding:12px 14px;
+  border-radius:12px;border:1.5px solid var(--border2);
+  background:var(--surface);color:var(--text);font-size:13.5px;
+  margin-bottom:8px;cursor:pointer;transition:all .15s;
+}
+.quiz-opt:hover{border-color:var(--accent2)}
+.quiz-opt.correct{background:rgba(16,185,129,.12);border-color:var(--success);color:var(--success)}
+.quiz-opt.wrong{background:rgba(237,73,86,.12);border-color:var(--danger);color:var(--danger)}
+.quiz-score-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--surface2);border-radius:20px;padding:6px 14px;
+  font-size:12px;font-weight:700;color:var(--text2);margin-bottom:14px;
+}
+
+/* ── TIME CAPSULE ── */
+.capsule-card{
+  background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(147,51,234,.08));
+  border:1px solid rgba(147,51,234,.15);
+  border-radius:var(--radius-lg);padding:18px;margin-bottom:14px;
+}
+.capsule-date{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent2);letter-spacing:.5px;margin-bottom:8px}
+.capsule-headline{font-size:15px;font-weight:700;color:var(--text);line-height:1.4;margin-bottom:6px}
+.capsule-summary{font-size:13px;color:var(--text2);line-height:1.6}
 </style>
 </head>
 <body>
@@ -386,6 +471,13 @@ a{color:inherit;text-decoration:none;}
     </div>
   </div>
 
+  <!-- CLOCK + WEATHER -->
+  <div class="info-pill-row">
+    <div class="info-pill" id="clockPill">🕐 <span class="ip-val" id="clockVal">--:--</span></div>
+    <div class="info-pill" id="weatherPill" onclick="fetchWeather(true)">📍 <span class="ip-val" id="weatherVal">--°C</span></div>
+    <div class="info-pill" onclick="setView('briefing')">✨ <span class="ip-val">Daily Briefing</span></div>
+  </div>
+
   <!-- STORIES -->
   <div class="stories-row" id="storiesRow"></div>
 
@@ -421,6 +513,18 @@ a{color:inherit;text-decoration:none;}
 
     <div class="view" id="view-research">
       <div class="section-pad" id="researchContainer"></div>
+    </div>
+
+    <div class="view" id="view-briefing">
+      <div class="section-pad" id="briefingContainer"></div>
+    </div>
+
+    <div class="view" id="view-quiz">
+      <div class="section-pad" id="quizContainer"></div>
+    </div>
+
+    <div class="view" id="view-capsule">
+      <div class="section-pad" id="capsuleContainer"></div>
     </div>
 
   </div>
@@ -539,13 +643,33 @@ function getSupabase(){
   if (_supaClient) return _supaClient;
   try{
     if (window.supabase && window.supabase.createClient){
-      _supaClient = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+      _supaClient = window.supabase.createClient(SUPA_URL, SUPA_ANON, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
     }
   }catch(e){ console.error('Supabase init failed:', e); }
   return _supaClient;
 }
 
+// Wait up to 4s for the Supabase SDK script to finish loading.
+// Prevents the login/signup freeze that happens if a button is clicked
+// before the CDN script tag has executed.
+async function waitForSupabaseSDK(){
+  if (window.supabase) return true;
+  var waited = 0;
+  while (!window.supabase && waited < 4000){
+    await new Promise(function(r){ setTimeout(r, 200); });
+    waited += 200;
+  }
+  return !!window.supabase;
+}
+
 const GNEWS_BASE     = 'https://gnews.io/api/v4';
+const CRICAPI_KEY    = 'a52ea237-09e7-41c7-a2dd-cbdb531e96be';
+const CRICAPI_BASE   = 'https://api.cricapi.com/v1';
+const SPORTSDB_KEY   = '3';
+const SPORTSDB_BASE  = 'https://www.thesportsdb.com/api/v1/json/'+SPORTSDB_KEY;
+
 const NEWSDATA_BASE  = 'https://newsdata.io/api/1';
 const WORLDNEWS_BASE = 'https://api.worldnewsapi.com';
 const CURRENTS_BASE  = 'https://api.currentsapi.services/v1';
@@ -1027,10 +1151,13 @@ function setView(view){
   if (view === 'feed' && _allArticles.length === 0) fetchAllSectors(_currentSector);
   if (view === 'india') loadIndiaView();
   if (view === 'explore') loadExploreView();
-  if (view === 'scores') loadScoresView();
+  if (view === 'scores') loadScoresLive();
   if (view === 'stocks') loadStocksView();
   if (view === 'bookmarks') renderBookmarksView();
   if (view === 'research') renderResearchView();
+  if (view === 'briefing') loadBriefingView();
+  if (view === 'quiz') loadQuizView();
+  if (view === 'capsule') loadCapsuleView();
 
   window.scrollTo({top:0, behavior:'instant'});
 }
@@ -1081,17 +1208,7 @@ function loadExploreView(){
 // ══════════════════════════════════════════════════
 // SCORES VIEW (live match scores)
 // ══════════════════════════════════════════════════
-async function loadScoresView(){
-  var el = document.getElementById('scoresContainer');
-  if (!el) return;
-  el.innerHTML = '<div class="center-loader"><div class="loader-spin"></div></div>';
-  try{
-    var sportsNews = await fetchFromGNews('Sports');
-    renderScores(sportsNews);
-  }catch(e){
-    renderScores([]);
-  }
-}
+// loadScoresView replaced by loadScoresLive (real cricket/football match data)
 function renderScores(items){
   var el = document.getElementById('scoresContainer');
   if (!el) return;
@@ -1105,7 +1222,7 @@ function renderScores(items){
         '<div class="score-status">' + escapeHtml(a.source) + ' · ' + timeAgo(a.publishedAt) + '</div></div>';
     }).join('');
 }
-function refreshScores(){ loadScoresView(); showToast('Refreshing scores...'); }
+function refreshScores(){ loadScoresLive(); showToast('Refreshing scores...'); }
 
 // ══════════════════════════════════════════════════
 // STOCKS VIEW
@@ -1818,8 +1935,9 @@ async function supaLogin(){
 
   setBtnLoading(btn, true, 'Logging in...');
   try{
+    await waitForSupabaseSDK();
     var sb = getSupabase();
-    if (!sb) throw new Error('Auth service unavailable. Please try again shortly.');
+    if (!sb) throw new Error('Auth service unavailable. Check your connection and refresh.');
     var result = await sb.auth.signInWithPassword({ email: email, password: pass });
     if (result.error) throw result.error;
     onSupaAuthSuccess(result.data.user);
@@ -1832,6 +1950,7 @@ async function supaLogin(){
 
 async function supaSignup(){
   var name = (document.getElementById('lpUpName').value || '').trim();
+  var prof = (document.getElementById('lpUpProf').value || '').trim();
   var email = (document.getElementById('lpUpEmail').value || '').trim();
   var pass = document.getElementById('lpUpPass').value || '';
   var errEl = document.getElementById('lpUpErr');
@@ -1843,11 +1962,15 @@ async function supaSignup(){
 
   setBtnLoading(btn, true, 'Signing up...');
   try{
+    await waitForSupabaseSDK();
     var sb = getSupabase();
-    if (!sb) throw new Error('Auth service unavailable. Please try again shortly.');
+    if (!sb) throw new Error('Auth service unavailable. Check your connection and refresh.');
     var result = await sb.auth.signUp({
       email: email, password: pass,
-      options: { data: { full_name: name } }
+      options: {
+        data: { full_name: name, profession: prof },
+        emailRedirectTo: window.location.origin + window.location.pathname
+      }
     });
     if (result.error) throw result.error;
     if (result.data && result.data.session){
@@ -1937,6 +2060,7 @@ async function logout(){
 }
 async function restoreSupabaseSession(){
   try{
+    await waitForSupabaseSDK();
     var sb = getSupabase();
     if (!sb) return false;
     var result = await sb.auth.getSession();
@@ -1954,10 +2078,20 @@ async function restoreSupabaseSession(){
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
-async function init(){
+async async function init(){
   initTheme();
   initLanguage();
   renderSectors();
+  startClock();
+  setTimeout(function(){ fetchWeather(); }, 800);
+
+  // Check localStorage first for instant restore (no SDK wait needed for guests)
+  var localUser = JSON.parse(localStorage.getItem('bna_user') || 'null');
+  if (localUser && localUser.isGuest) {
+    _currentUser = localUser;
+    showApp();
+    return;
+  }
 
   var restored = false;
   try{
@@ -1973,8 +2107,303 @@ async function init(){
   }
 }
 
+// ══════════════════════════════════════════════════
+// LIVE CLOCK
+// ══════════════════════════════════════════════════
+function startClock() {
+  function tick() {
+    var now = new Date();
+    var h = now.getHours(), m = now.getMinutes();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12 || 12;
+    var el = document.getElementById('clockVal');
+    if (el) el.textContent = h12 + ':' + (m<10?'0':'') + m + ' ' + ampm;
+  }
+  tick();
+  setInterval(tick, 15000);
+}
+
+// ══════════════════════════════════════════════════
+// WEATHER (Open-Meteo + Nominatim, no key needed)
+// ══════════════════════════════════════════════════
+var _weatherCache = null;
+async function fetchWeather(forceRefresh) {
+  var el = document.getElementById('weatherVal');
+  try {
+    var cached = JSON.parse(localStorage.getItem('bna_wx') || 'null');
+    var now = Date.now();
+    if (!forceRefresh && cached && (now - cached.ts) < 30*60*1000) {
+      if (el) el.textContent = cached.temp + '°C ' + cached.city;
+      return;
+    }
+    if (el) el.textContent = '...';
+    var pos = await new Promise(function(resolve) {
+      if (!navigator.geolocation) { resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        function(p){ resolve(p.coords); },
+        function(){ resolve(null); },
+        { timeout: 5000 }
+      );
+    });
+    var lat = pos ? pos.latitude  : 28.6139;  // fallback: Delhi
+    var lon = pos ? pos.longitude : 77.2090;
+
+    var ac = new AbortController(); setTimeout(function(){ac.abort();}, 8000);
+    var r = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current_weather=true', {signal: ac.signal});
+    var d = await r.json();
+    var temp = Math.round(d.current_weather.temperature);
+
+    var city = 'Local';
+    try {
+      var rg = await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json', {signal: ac.signal, headers:{'Accept-Language':'en'}});
+      var gd = await rg.json();
+      city = (gd.address && (gd.address.city || gd.address.town || gd.address.state)) || 'Local';
+    } catch(e) {}
+
+    if (el) el.textContent = temp + '°C ' + city;
+    localStorage.setItem('bna_wx', JSON.stringify({temp:temp, city:city, ts:now}));
+  } catch(e) {
+    if (el) el.textContent = '--°C';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// LIVE SCORES — CricAPI + ESPN + TheSportsDB
+// ══════════════════════════════════════════════════
+var _scoresSport = 'cricket';
+
+async function loadScoresLive(sport) {
+  _scoresSport = sport || _scoresSport;
+  var el = document.getElementById('scoresContainer');
+  if (!el) return;
+  el.innerHTML = '<div class="score-sport-tabs">'
+    + ['cricket','football'].map(function(s) {
+        var active = s === _scoresSport ? 'active' : '';
+        var label = s === 'cricket' ? '🏏 Cricket' : '⚽ Football';
+        return '<button class="chip '+active+'" onclick="loadScoresLive(\''+s+'\')">'+label+'</button>';
+      }).join('')
+    + '</div><div class="center-loader"><div class="loader-spin"></div></div>';
+
+  try {
+    var matches = [];
+    if (_scoresSport === 'cricket') {
+      matches = await fetchCricketScores();
+    } else {
+      matches = await fetchFootballScores();
+    }
+    renderLiveScores(matches);
+  } catch(e) {
+    renderLiveScores([]);
+  }
+}
+
+async function fetchCricketScores() {
+  try {
+    var ac = new AbortController(); setTimeout(function(){ac.abort();}, 8000);
+    var r = await fetch(CRICAPI_BASE+'/currentMatches?apikey='+CRICAPI_KEY+'&offset=0', {signal: ac.signal});
+    var d = await r.json();
+    if (!d.data) return [];
+    return d.data.slice(0,8).map(function(m) {
+      var t1 = m.teams && m.teams[0] || 'Team A';
+      var t2 = m.teams && m.teams[1] || 'Team B';
+      var s1 = '', s2 = '';
+      if (m.score && m.score.length) {
+        m.score.forEach(function(sc) {
+          if (sc.inning && sc.inning.indexOf(t1) === 0) s1 = sc.r+'/'+sc.w+' ('+sc.o+')';
+          else if (sc.inning && sc.inning.indexOf(t2) === 0) s2 = sc.r+'/'+sc.w+' ('+sc.o+')';
+        });
+      }
+      return {
+        sport: 'cricket', team1: t1, team2: t2,
+        score1: s1, score2: s2,
+        status: m.status || 'Scheduled',
+        isLive: m.matchStarted && !m.matchEnded
+      };
+    });
+  } catch(e) { return []; }
+}
+
+async function fetchFootballScores() {
+  try {
+    var ac = new AbortController(); setTimeout(function(){ac.abort();}, 8000);
+    // ISL via TheSportsDB
+    var r = await fetch(SPORTSDB_BASE+'/eventsday.php?d='+new Date().toISOString().slice(0,10)+'&s=Soccer', {signal: ac.signal});
+    var d = await r.json();
+    if (!d.events) return [];
+    return d.events.slice(0,8).map(function(ev) {
+      return {
+        sport: 'football',
+        team1: ev.strHomeTeam, team2: ev.strAwayTeam,
+        score1: ev.intHomeScore || '-', score2: ev.intAwayScore || '-',
+        status: ev.strStatus || ev.strTime || 'Scheduled',
+        isLive: ev.strStatus === 'Live' || ev.strStatus === '1H' || ev.strStatus === '2H'
+      };
+    });
+  } catch(e) { return []; }
+}
+
+function renderLiveScores(matches) {
+  var el = document.getElementById('scoresContainer');
+  if (!el) return;
+  var tabsHtml = '<div class="score-sport-tabs">'
+    + ['cricket','football'].map(function(s) {
+        var active = s === _scoresSport ? 'active' : '';
+        var label = s === 'cricket' ? '🏏 Cricket' : '⚽ Football';
+        return '<button class="chip '+active+'" onclick="loadScoresLive(\''+s+'\')">'+label+'</button>';
+      }).join('')
+    + '</div>';
+
+  if (!matches || !matches.length) {
+    el.innerHTML = tabsHtml + '<div class="empty-state"><div class="ic">🏆</div><div class="t">No live matches right now</div><div class="s">Check back during match hours.</div></div>';
+    return;
+  }
+
+  el.innerHTML = tabsHtml + matches.map(function(m) {
+    var liveTag = m.isLive ? '<span class="live-dot"></span>LIVE' : 'SCHEDULED';
+    return '<div class="live-score-card">'
+      + '<div class="live-score-head">' + liveTag + '</div>'
+      + '<div class="live-score-teams">'
+        + '<div class="live-score-team"><div class="live-score-team-name">' + escapeHtml(m.team1) + '</div><div class="live-score-team-score">' + escapeHtml(m.score1||'-') + '</div></div>'
+        + '<div class="live-score-vs">VS</div>'
+        + '<div class="live-score-team"><div class="live-score-team-name">' + escapeHtml(m.team2) + '</div><div class="live-score-team-score">' + escapeHtml(m.score2||'-') + '</div></div>'
+      + '</div>'
+      + '<div class="live-score-status">' + escapeHtml(m.status||'') + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// DAILY AI BRIEFING (Groq)
+// ══════════════════════════════════════════════════
+async function loadBriefingView() {
+  var el = document.getElementById('briefingContainer');
+  if (!el) return;
+  el.innerHTML = '<div class="center-loader"><div class="loader-spin"></div></div>';
+  try {
+    var pool = _allArticles.length ? _allArticles : getFallbackNews();
+    var top5 = pool.slice(0, 5).map(function(a){ return a.title; }).join('; ');
+    var prompt = 'Today\'s top headlines: ' + top5
+      + '\n\nWrite a punchy 3-4 sentence morning briefing summarizing the day\'s biggest news for an Indian reader. '
+      + 'Bold the most important terms with **. End with one relevant emoji.';
+    var answer = await callAI(prompt, 'You are a sharp news briefing writer for BharatNews.ai. Be concise and engaging.');
+    var formatted = (answer || 'Unable to generate briefing right now.')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+    el.innerHTML = '<div class="briefing-card" style="margin:0 0 16px">'
+      + '<div class="briefing-head"><span class="briefing-badge">✨ AI Briefing</span></div>'
+      + '<div class="briefing-text">' + formatted + '</div>'
+    + '</div>'
+    + '<button class="chip" style="margin-bottom:10px" onclick="setView(\'quiz\')">🏆 Take Today\'s Quiz</button> '
+    + '<button class="chip" onclick="setView(\'capsule\')">🕰️ Time Capsule</button>';
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state"><div class="ic">✨</div><div class="t">Could not load briefing</div></div>';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// QUIZ — AI generated, one question at a time
+// ══════════════════════════════════════════════════
+var _quizScore = 0, _quizTotal = 0, _quizCurrent = null;
+
+async function loadQuizView() {
+  _quizScore = 0; _quizTotal = 0;
+  await nextQuizQuestion();
+}
+
+async function nextQuizQuestion() {
+  var el = document.getElementById('quizContainer');
+  if (!el) return;
+  el.innerHTML = '<div class="quiz-score-pill">Score: ' + _quizScore + '/' + _quizTotal + '</div><div class="center-loader"><div class="loader-spin"></div></div>';
+  try {
+    var prompt = 'Generate ONE multiple choice quiz question about Indian current affairs, history, sports, or general knowledge. '
+      + 'Respond ONLY in this exact JSON format with no markdown, no backticks: '
+      + '{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"..."}';
+    var raw = await callAI(prompt, 'You are a quiz generator. Respond with ONLY valid JSON, nothing else.');
+    var clean = (raw||'').replace(/```json|```/g,'').trim();
+    var q = JSON.parse(clean);
+    _quizCurrent = q;
+    renderQuizQuestion(q);
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state"><div class="ic">🏆</div><div class="t">Could not load quiz</div><button class="chip" onclick="nextQuizQuestion()" style="margin-top:10px">Try Again</button></div>';
+  }
+}
+
+function renderQuizQuestion(q) {
+  var el = document.getElementById('quizContainer');
+  if (!el) return;
+  el.innerHTML = '<div class="quiz-score-pill">Score: ' + _quizScore + '/' + _quizTotal + '</div>'
+    + '<div class="quiz-card">'
+      + '<div class="quiz-q">' + escapeHtml(q.question) + '</div>'
+      + q.options.map(function(opt, i) {
+          return '<button class="quiz-opt" onclick="answerQuiz('+i+')" id="qopt-'+i+'">' + escapeHtml(opt) + '</button>';
+        }).join('')
+    + '</div>';
+}
+
+function answerQuiz(selectedIndex) {
+  var q = _quizCurrent;
+  if (!q) return;
+  _quizTotal++;
+  var correct = selectedIndex === q.correctIndex;
+  if (correct) _quizScore++;
+
+  document.querySelectorAll('.quiz-opt').forEach(function(btn, i) {
+    btn.style.pointerEvents = 'none';
+    if (i === q.correctIndex) btn.classList.add('correct');
+    else if (i === selectedIndex) btn.classList.add('wrong');
+  });
+
+  setTimeout(function() {
+    var el = document.getElementById('quizContainer');
+    if (el) {
+      var explainDiv = document.createElement('div');
+      explainDiv.style.cssText = 'padding:12px 14px;background:var(--surface3);border-radius:12px;font-size:13px;color:var(--text2);margin-top:4px;line-height:1.5';
+      explainDiv.innerHTML = (correct ? '✅ Correct! ' : '❌ ') + escapeHtml(q.explanation||'');
+      el.appendChild(explainDiv);
+      var nextBtn = document.createElement('button');
+      nextBtn.className = 'lp-btn';
+      nextBtn.style.marginTop = '12px';
+      nextBtn.textContent = 'Next Question →';
+      nextBtn.onclick = nextQuizQuestion;
+      el.appendChild(nextBtn);
+    }
+  }, 300);
+}
+
+// ══════════════════════════════════════════════════
+// TIME CAPSULE — "On this day" style AI-generated
+// ══════════════════════════════════════════════════
+async function loadCapsuleView() {
+  var el = document.getElementById('capsuleContainer');
+  if (!el) return;
+  el.innerHTML = '<div class="center-loader"><div class="loader-spin"></div></div>';
+  try {
+    var today = new Date();
+    var dateStr = today.toLocaleDateString('en-IN', {month:'long', day:'numeric'});
+    var prompt = 'List 3 significant historical events that happened on ' + dateStr + ' (any year), relevant to India or world history. '
+      + 'For each: give the year, a short headline, and a 1-sentence summary. '
+      + 'Format as: **Year** — Headline\\nSummary\\n\\n (repeat for each, separated by blank line)';
+    var answer = await callAI(prompt, 'You are a history expert. Be accurate and concise.');
+    var formatted = (answer || 'Could not load historical events.')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    var entries = formatted.split('\n\n').filter(function(e){ return e.trim(); });
+    el.innerHTML = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);letter-spacing:.5px;margin-bottom:14px">🕰️ On This Day — ' + dateStr + '</div>'
+      + entries.map(function(entry) {
+          var lines = entry.split('\n');
+          return '<div class="capsule-card">'
+            + '<div class="capsule-headline">' + (lines[0]||'') + '</div>'
+            + '<div class="capsule-summary">' + (lines.slice(1).join(' ')||'') + '</div>'
+          + '</div>';
+        }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state"><div class="ic">🕰️</div><div class="t">Could not load time capsule</div></div>';
+  }
+}
+
+
 if (document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', init);
+  
+document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
 }
