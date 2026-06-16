@@ -382,6 +382,7 @@ a{color:inherit;text-decoration:none;}
       <button class="icon-btn" onclick="openAlertModal()" title="Alerts">🔔</button>
       <button class="icon-btn" onclick="openSearch()" title="Search">🔍</button>
       <button class="icon-btn" onclick="openChat()" title="Chat" id="chatBtn">💬</button>
+      <button class="icon-btn" onclick="openProfile()" title="Profile" id="profileTopBtn"><span id="profileTabIcon">👤</span></button>
     </div>
   </div>
 
@@ -440,9 +441,6 @@ a{color:inherit;text-decoration:none;}
     </button>
     <button class="tab-btn" id="tab-bookmarks" onclick="setView('bookmarks')">
       <span>🔖</span><span class="tlabel">Saved</span>
-    </button>
-    <button class="tab-btn" id="tab-profile" onclick="openProfile()">
-      <span id="profileTabIcon">👤</span><span class="tlabel">Profile</span>
     </button>
   </div>
 </div>
@@ -683,6 +681,20 @@ function newsapiToCard(a, sector){
     publishedAt: a.publishedAt, sector: sector || 'All', content: a.content || a.description || ''
   };
 }
+function worldnewsToCard(a, sector){
+  return {
+    title: a.title, summary: a.text ? a.text.slice(0,200) : (a.summary || ''), url: a.url,
+    image: a.image || null, source: a.source_country ? ('World News · ' + a.source_country.toUpperCase()) : 'World News',
+    publishedAt: a.publish_date, sector: sector || 'All', content: a.text || a.summary || ''
+  };
+}
+function currentsToCard(a, sector){
+  return {
+    title: a.title, summary: a.description || '', url: a.url,
+    image: (a.image && a.image !== 'None') ? a.image : null, source: 'Currents',
+    publishedAt: a.published, sector: sector || 'All', content: a.description || ''
+  };
+}
 
 // ══════════════════════════════════════════════════
 // FETCH FUNCTIONS — each independently fails-soft
@@ -725,6 +737,24 @@ async function fetchFromNewsAPI(sector){
     var data = await res.json();
     return (data.articles || []).map(function(a){ return newsapiToCard(a, sector); });
   }catch(e){ console.warn('NewsAPI fetch failed:', e.message); return []; }
+}
+async function fetchFromWorldNews(sector){
+  try{
+    var url = WORLDNEWS_BASE + '/search-news?api-key=' + WORLDNEWS_KEY + '&source-countries=in&language=en&number=10';
+    var res = await fetchWithTimeout(url, {}, 7000);
+    if (!res.ok) return [];
+    var data = await res.json();
+    return (data.news || []).map(function(a){ return worldnewsToCard(a, sector); });
+  }catch(e){ console.warn('WorldNews fetch failed:', e.message); return []; }
+}
+async function fetchFromCurrents(sector){
+  try{
+    var url = CURRENTS_BASE + '/latest-news?language=en&apiKey=' + CURRENTS_KEY;
+    var res = await fetchWithTimeout(url, {}, 7000);
+    if (!res.ok) return [];
+    var data = await res.json();
+    return (data.news || []).map(function(a){ return currentsToCard(a, sector); });
+  }catch(e){ console.warn('Currents fetch failed:', e.message); return []; }
 }
 async function fetchIndia(){
   try{
@@ -819,7 +849,9 @@ async function fetchAllSectors(sector){
       fetchFromGNews(sector),
       fetchFromNewsData(sector),
       fetchFromGuardian(sector),
-      fetchFromNewsAPI(sector)
+      fetchFromNewsAPI(sector),
+      fetchFromWorldNews(sector),
+      fetchFromCurrents(sector)
     ]);
     var arrays = results.map(function(r){ return r.status === 'fulfilled' ? r.value : []; });
     var merged = mergeSources(arrays);
@@ -1150,7 +1182,7 @@ async function doResearch(){
     ]);
     if (out) out.innerHTML = '<div class="reader-ai-box"><div class="h">🔬 Analysis</div><div style="font-size:14px;line-height:1.6;white-space:pre-wrap">' + escapeHtml(answer) + '</div></div>';
   }catch(e){
-    if (out) out.innerHTML = '<div class="empty-state"><div class="s">Research failed. Please try again.</div></div>';
+    if (out) out.innerHTML = '<div class="empty-state"><div class="s">' + escapeHtml(friendlyAIErrorMessage(e)) + '</div></div>';
   }finally{
     if (btn) { btn.disabled = false; btn.textContent = 'Run Research'; }
   }
@@ -1199,7 +1231,7 @@ async function analyzeNews(){
     ]);
     box.innerHTML = '<div class="reader-ai-box"><div class="h">✨ AI Analysis</div><div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap">' + escapeHtml(answer) + '</div></div>';
   }catch(e){
-    box.innerHTML = '<div class="reader-ai-box"><div class="h">⚠️ Analysis unavailable</div><div style="font-size:13px;color:var(--text2)">Please try again in a moment.</div></div>';
+    box.innerHTML = '<div class="reader-ai-box"><div class="h">⚠️ Analysis unavailable</div><div style="font-size:13px;color:var(--text2)">' + escapeHtml(friendlyAIErrorMessage(e)) + '</div></div>';
   }
 }
 
@@ -1320,7 +1352,9 @@ async function callAI(messages, opts){
     }, 15000);
     if (!res.ok){
       var errBody = await res.text().catch(function(){ return ''; });
-      throw new Error('Groq API error ' + res.status + ': ' + errBody.slice(0,200));
+      var err = new Error('Groq API error ' + res.status + ': ' + errBody.slice(0,200));
+      err.status = res.status;
+      throw err;
     }
     var data = await res.json();
     var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
@@ -1415,6 +1449,15 @@ function prefillChatAbout(listName, idx){
   }, 150);
 }
 
+function friendlyAIErrorMessage(e){
+  var status = e && e.status;
+  if (status === 401) return '⚠️ The AI key was rejected (401 Unauthorized). It may have been revoked or expired — check the Groq dashboard.';
+  if (status === 429) return '⚠️ The AI is rate-limited right now (429 Too Many Requests). Please wait a moment and try again.';
+  if (status === 404) return '⚠️ The AI model is no longer available (404). It may need to be updated to a current model name.';
+  if (status >= 500) return '⚠️ The AI service is temporarily unavailable (' + status + '). Please try again shortly.';
+  if (e && e.name === 'AbortError') return '⚠️ The AI took too long to respond and timed out. Please try again.';
+  return 'Sorry, I ran into an error reaching the AI. Please try again.';
+}
 async function sendChatMsg(){
   var inp = document.getElementById('chatInput');
   var q = (inp && inp.value || '').trim();
@@ -1452,7 +1495,7 @@ async function sendChatMsg(){
     }
   }catch(e){
     if (typingEl) typingEl.remove();
-    appendBotMsg('Sorry, I ran into an error reaching the AI. Please try again.', false);
+    appendBotMsg(friendlyAIErrorMessage(e), false);
     console.error('Chat error:', e);
   }finally{
     // Always release the lock, even if something above throws unexpectedly —
