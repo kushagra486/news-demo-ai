@@ -5,11 +5,14 @@
   "start_url": "/news-demo-ai/",
   "scope": "/news-demo-ai/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "background_color": "#fafafa",
+  "theme_color": "#9333ea",
   "orientation": "portrait-primary",
   "lang": "en-IN",
-  "categories": ["news", "entertainment"],
+  "categories": [
+    "news",
+    "entertainment"
+  ],
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/kushagra486/bharat-news-ai/main/logo.png",
@@ -39,7 +42,7 @@
     },
     {
       "name": "Hindi News",
-      "short_name": "हिंदी",
+      "short_name": "\u0939\u093f\u0902\u0926\u0940",
       "url": "/news-demo-ai/#hindi",
       "description": "Hindi language news"
     }
