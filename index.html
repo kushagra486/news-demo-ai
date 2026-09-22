@@ -628,13 +628,13 @@ a{color:inherit;text-decoration:none;}
 // proxy (e.g. Supabase Edge Functions) so keys are never shipped to the browser.
 // Kept here as-is per current scope — functional prototype only.
 // ══════════════════════════════════════════════════
-const GNEWS_KEY      = window.GNEWS_KEY      || '5b1fe697fb6dd50a5f9abbcd0515eece';
-const NEWSDATA_KEY   = window.NEWSDATA_KEY   || 'pub_38d8830b430242eb9f2a43de56dd9566';
-const GUARDIAN_KEY   = window.GUARDIAN_KEY   || '33e49fef-8260-4a36-9797-f943fa3bbb13';
-const NEWSAPI_KEY    = window.NEWSAPI_KEY    || '420794cf664d4ef3adf2d1fb47668f25';
-const GROQ_KEY       = window.GROQ_KEY       || ['gsk_oqWWyKj7GX','6oxkEYSr0pWGdy','b3FYYyDPHNQvPX0jiii1S7k0fJkJ'].join('');
-const WORLDNEWS_KEY  = window.WORLDNEWS_KEY  || '316c18a5f83e4e169bf7c1a3ba47af42';
-const CURRENTS_KEY   = window.CURRENTS_KEY   || 'D8Pxk_yRlN3sQmT6vHbZ9cWjUeA2gFo5';
+// All provider keys now live server-side in the proxy's env vars (see
+// api/proxy.js and api/groq.js) — nothing secret is shipped to the browser.
+const PROXY_BASE = window.NEWS_PROXY_BASE || 'https://bharat-news-proxy.vercel.app/api/proxy';
+const GROQ_PROXY = window.GROQ_PROXY_BASE || 'https://bharat-news-proxy.vercel.app/api/groq';
+function proxied(provider, endpointAndQuery){
+  return PROXY_BASE + '?provider=' + encodeURIComponent(provider) + '&qs=' + encodeURIComponent(endpointAndQuery);
+}
 
 const SUPA_URL  = 'https://hrfubpludaeicffjmuok.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyZnVicGx1ZGFlaWNmZmptdW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzgyOTQsImV4cCI6MjA5Njg1NDI5NH0.cMzCkgMLSU1cxTw6vXpd7I_E2chCgys3neBLqawhSCQ';
@@ -664,18 +664,10 @@ async function waitForSupabaseSDK(){
   return !!window.supabase;
 }
 
-const GNEWS_BASE     = 'https://gnews.io/api/v4';
-const CRICAPI_KEY    = 'a52ea237-09e7-41c7-a2dd-cbdb531e96be';
-const CRICAPI_BASE   = 'https://api.cricapi.com/v1';
+// TheSportsDB's "3" key is their published public test key (not a secret),
+// so this one is fine to call directly.
 const SPORTSDB_KEY   = '3';
 const SPORTSDB_BASE  = 'https://www.thesportsdb.com/api/v1/json/'+SPORTSDB_KEY;
-
-const NEWSDATA_BASE  = 'https://newsdata.io/api/1';
-const WORLDNEWS_BASE = 'https://api.worldnewsapi.com';
-const CURRENTS_BASE  = 'https://api.currentsapi.services/v1';
-const GUARDIAN_BASE  = 'https://content.guardianapis.com';
-const NEWSAPI_BASE   = 'https://newsapi.org/v2';
-const GROQ_BASE      = 'https://api.groq.com/openai/v1/chat/completions';
 
 const SECTOR_TO_GNEWS    = {All:'general',Tech:'technology',Finance:'business',Health:'health',Science:'science',Politics:'nation',Climate:'world',Sports:'sports'};
 const SECTOR_TO_NEWSDATA = {All:'top',Tech:'technology',Finance:'business',Health:'health',Science:'science',Politics:'politics',Climate:'environment',Sports:'sports'};
@@ -826,7 +818,7 @@ function currentsToCard(a, sector){
 async function fetchFromGNews(sector){
   try{
     var topic = SECTOR_TO_GNEWS[sector] || 'general';
-    var url = GNEWS_BASE + '/top-headlines?category=' + topic + '&lang=en&country=in&max=10&apikey=' + GNEWS_KEY;
+    var url = proxied('gnews', 'top-headlines?category=' + topic + '&lang=en&country=in&max=10');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -836,7 +828,7 @@ async function fetchFromGNews(sector){
 async function fetchFromNewsData(sector){
   try{
     var cat = SECTOR_TO_NEWSDATA[sector] || 'top';
-    var url = NEWSDATA_BASE + '/news?apikey=' + NEWSDATA_KEY + '&country=in&language=en&category=' + cat;
+    var url = proxied('newsdata', 'news?country=in&language=en&category=' + cat);
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -845,7 +837,7 @@ async function fetchFromNewsData(sector){
 }
 async function fetchFromGuardian(sector){
   try{
-    var url = GUARDIAN_BASE + '/search?api-key=' + GUARDIAN_KEY + '&show-fields=trailText,thumbnail,bodyText&page-size=10';
+    var url = proxied('guardian', 'search?show-fields=trailText,thumbnail,bodyText&page-size=10');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -855,7 +847,7 @@ async function fetchFromGuardian(sector){
 }
 async function fetchFromNewsAPI(sector){
   try{
-    var url = NEWSAPI_BASE + '/top-headlines?country=in&pageSize=10&apiKey=' + NEWSAPI_KEY;
+    var url = proxied('newsapi', 'top-headlines?country=in&pageSize=10');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -864,7 +856,7 @@ async function fetchFromNewsAPI(sector){
 }
 async function fetchFromWorldNews(sector){
   try{
-    var url = WORLDNEWS_BASE + '/search-news?api-key=' + WORLDNEWS_KEY + '&source-countries=in&language=en&number=10';
+    var url = proxied('worldnews', 'search-news?source-countries=in&language=en&number=10');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -873,7 +865,7 @@ async function fetchFromWorldNews(sector){
 }
 async function fetchFromCurrents(sector){
   try{
-    var url = CURRENTS_BASE + '/latest-news?language=en&apiKey=' + CURRENTS_KEY;
+    var url = proxied('currents', 'latest-news?language=en');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -882,7 +874,7 @@ async function fetchFromCurrents(sector){
 }
 async function fetchIndia(){
   try{
-    var url = NEWSDATA_BASE + '/news?apikey=' + NEWSDATA_KEY + '&country=in&language=en';
+    var url = proxied('newsdata', 'news?country=in&language=en');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -891,7 +883,7 @@ async function fetchIndia(){
 }
 async function searchGNews(q){
   try{
-    var url = GNEWS_BASE + '/search?q=' + encodeURIComponent(q) + '&lang=en&max=8&apikey=' + GNEWS_KEY;
+    var url = proxied('gnews', 'search?q=' + encodeURIComponent(q) + '&lang=en&max=8');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -900,7 +892,7 @@ async function searchGNews(q){
 }
 async function searchNewsAPI(q){
   try{
-    var url = NEWSAPI_BASE + '/everything?q=' + encodeURIComponent(q) + '&pageSize=8&sortBy=publishedAt&apiKey=' + NEWSAPI_KEY;
+    var url = proxied('newsapi', 'everything?q=' + encodeURIComponent(q) + '&pageSize=8&sortBy=publishedAt');
     var res = await fetchWithTimeout(url, {}, 7000);
     if (!res.ok) return [];
     var data = await res.json();
@@ -1454,11 +1446,10 @@ function renderSearchResults(){
 async function callAI(messages, opts){
   opts = opts || {};
   try{
-    var res = await fetchWithTimeout(GROQ_BASE, {
+    var res = await fetchWithTimeout(GROQ_PROXY, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + GROQ_KEY
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: opts.model || 'llama-3.1-8b-instant',
@@ -2078,7 +2069,7 @@ async function restoreSupabaseSession(){
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
-async async function init(){
+async function init(){
   initTheme();
   initLanguage();
   renderSectors();
@@ -2200,7 +2191,7 @@ async function loadScoresLive(sport) {
 async function fetchCricketScores() {
   try {
     var ac = new AbortController(); setTimeout(function(){ac.abort();}, 8000);
-    var r = await fetch(CRICAPI_BASE+'/currentMatches?apikey='+CRICAPI_KEY+'&offset=0', {signal: ac.signal});
+    var r = await fetch(proxied('cricapi', 'currentMatches?offset=0'), {signal: ac.signal});
     var d = await r.json();
     if (!d.data) return [];
     return d.data.slice(0,8).map(function(m) {
